@@ -51,6 +51,7 @@ public:
     virtual void SetTask(Task t) { task = t; }
     virtual void SetEps(double eps_val) { eps = eps_val; }
     virtual void SetKmax(int kmax_val) { Kmax = kmax_val; }
+    const std::vector<Trial>& GetTrials() const { return Trials; }
 
     void Initialize() { Trials.clear(); }
 
@@ -59,12 +60,10 @@ public:
         trial0.k = 1;
         trial0.x = task.a;
         trial0.z = task.func(task.a);
-        std::cout << "k = " << trial0.k << " x = " << trial0.x << std::endl;
 
         trial1.k = 2;
         trial1.x = task.b;
         trial1.z = task.func(task.b);
-        std::cout << "k = " << trial1.k << " x = " << trial1.x << std::endl;
 
         Trials.push_back(trial0);
         Trials.push_back(trial1);
@@ -157,7 +156,6 @@ public:
                 InsertNewTrial(newTrial, t);
                 k++;
                 WriteTrialToFile(newTrial);
-                std::cout << "k = " << k << " x = " << newTrial.x << std::endl;
             }
         }
     }
@@ -255,7 +253,6 @@ public:
                     k++;
                     
                     WriteTrialToFile(newTrial);
-                    std::cout << "k = " << k << " x = " << x << std::endl;
                 }
             }
         }
