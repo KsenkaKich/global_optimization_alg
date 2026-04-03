@@ -13,8 +13,7 @@ private:
     Dislin g;
 
 public:
-    void PlotAlgorithm(const std::vector<Trial>& trials, const Trial& best_point,
-                      double a, double b, const std::string& algorithm_name) {
+    void PlotAlgorithm(const std::vector<Trial>& trials, const Trial& best_point, double a, double b, const std::string& algorithm_name) {
         
         if (trials.empty()) return;
         
@@ -46,7 +45,7 @@ public:
         g.name("x", "x");
         g.name("f(x)", "y");
         
-        g.labdig(-1, "x");
+        g.labdig(3, "x");
         g.ticks(5, "x");
         g.ticks(5, "y");
         
@@ -56,16 +55,14 @@ public:
         g.titlin(const_cast<char*>(iter_str.c_str()), 2);
         
         std::string best_info = "Best: x = " + std::to_string(best_point.x).substr(0, 8) +
-                               ", f(x) = " + std::to_string(best_point.z).substr(0, 8) +
-                               ", k = " + std::to_string(best_point.k);
+                                ", f(x) = " + std::to_string(best_point.z).substr(0, 8) +
+                                ", k = " + std::to_string(best_point.k);
         g.titlin(const_cast<char*>(best_info.c_str()), 3);
         
         int ic = g.intrgb(0.95, 0.95, 0.95);
         g.axsbgd(ic);
         
-        g.graf(a, b, a, (b-a)/10, 
-               min_y - y_padding, max_y + y_padding, 
-               min_y - y_padding, (max_y - min_y + 2*y_padding)/10);
+        g.graf(a, b, a, (b-a)/10, min_y - y_padding, max_y + y_padding, min_y - y_padding, (max_y - min_y + 2*y_padding)/10);
         
         g.setrgb(0.8, 0.8, 0.8);
         g.grid(3, 3);
@@ -77,11 +74,22 @@ public:
         g.setrgb(0.5, 0.5, 0.5);
         g.curve(x_all.data(), y_all.data(), sorted_trials.size());
         
+        g.shdpat(16); 
+        
+        double x_range = b - a;
+        double circle_size = x_range * 0.005;
+        
         g.color("blue");
-        g.incmrk(1);
-        g.marker(1);
-        g.hsymbl(15);
-        g.curve(x_all.data(), y_all.data(), sorted_trials.size());
+        for (const auto& trial : sorted_trials) {
+            if (std::abs(trial.x - best_point.x) < 1e-10 && 
+                std::abs(trial.z - best_point.z) < 1e-10) {
+                continue;
+            }
+            g.rlcirc(trial.x, trial.z, circle_size);
+        }
+        
+        g.color("red");
+        g.rlcirc(best_point.x, best_point.z, circle_size);
         
         g.disfin();
     }

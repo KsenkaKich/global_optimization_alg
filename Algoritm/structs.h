@@ -70,7 +70,12 @@ public:
     }
 
     bool CheckStopCondition(size_t t) {
-        return (Trials[t + 1].x - Trials[t].x) <= eps;
+        double interval = Trials[t + 1].x - Trials[t].x;
+        double range = task.b - task.a;
+        if (interval <= range * eps) return true;
+        if (interval <= eps) return true;
+        
+        return false;
     }
 
     bool CheckPointExists(double x) {

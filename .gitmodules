@@ -1,0 +1,3 @@
+[submodule "Algoritm/external/GCGen"]
+	path = Algoritm/external/GCGen
+	url = https://github.com/KsenkaKich/GCGen
