@@ -28,38 +28,7 @@ struct TestResult {
     double a, b;
 };
 
-void saveResultsToCSV(const vector<TestResult>& results, const string& solver_name, const string& filename) {
-    bool file_exists = false;
-    ifstream check(filename);
-    if (check.good()) file_exists = true;
-    check.close();
-    
-    ofstream csv(filename, ios::app);
-    
-    if (!file_exists) {
-        csv << "Solver,Function,Iterations,BestX,TrueX,ErrorX,RelativeError%,BestF,TrueF,ErrorF\n";
-    }
-    
-    for (const auto& r : results) {
-        double range = (r.name.find("Hill") != string::npos) ? 1.0 : 10.0;
-        double err_percent = (r.error_x / range) * 100.0;
-        
-        csv << solver_name << ","
-            << r.name << ","
-            << r.iterations << ","
-            << r.best_x << ","
-            << r.true_x << ","
-            << r.error_x << ","
-            << err_percent << ","
-            << r.best_f << ","
-            << r.true_f << ","
-            << r.error_f << "\n";
-    }
-    csv.close();
-}
-
-void runHillTests(Solver& solver, const string& solver_name, int family_count, vector<TestResult>& results, int Kmax, double eps, double a, double b) {
-    // Hill Problem
+void runSingleHillTest(Solver& solver, vector<TestResult>& results, int Kmax, double eps, double a, double b) {
     THillProblem hill(0);
     vector<double> hill_opt = hill.GetOptimumPoint();
     double true_x = hill_opt[0], true_f = hill.GetOptimumValue();
@@ -71,13 +40,16 @@ void runHillTests(Solver& solver, const string& solver_name, int family_count, v
     
     solver.SetEps(eps);
     solver.SetKmax(Kmax);
-    if (solver_name == "GSA") dynamic_cast<GSASolver&>(solver).SetR(2.0);
+    
+    GSASolver* gsa = dynamic_cast<GSASolver*>(&solver);
+    if (gsa) gsa->SetR(2.0);
+    
     solver.SetTask(task);
     solver.Solve();
     
     Trial best = solver.GetBest();
     TestResult res;
-    res.name = "Hill_0";
+    res.name = "Hill";
     res.iterations = solver.GetTrials().size();
     res.best_x = best.x;
     res.best_f = best.z;
@@ -90,13 +62,16 @@ void runHillTests(Solver& solver, const string& solver_name, int family_count, v
     res.a = a;
     res.b = b;
     results.push_back(res);
-    
-    // Hill Family
+}
+
+void runHillFamilyTests(Solver& solver, int family_count, vector<TestResult>& results, int Kmax, double eps, double a, double b) {
     THillProblemFamily hillFam;
     int hillFamilySize = hillFam.GetFamilySize();
-    int maxHillFam = min(family_count, hillFamilySize);
+    int HillFam = min(family_count, hillFamilySize);
+    solver.SetEps(eps);
+    solver.SetKmax(Kmax); 
     
-    for (int i = 0; i < maxHillFam; i++) {
+    for (int i = 0; i < HillFam; i++) {
         THillProblem hillProb(i);
         vector<double> opt_point = hillProb.GetOptimumPoint();
         double true_x = opt_point[0], true_f = hillProb.GetOptimumValue();
@@ -109,7 +84,8 @@ void runHillTests(Solver& solver, const string& solver_name, int family_count, v
         solver.SetTask(fam_task);
         solver.Solve();
         
-        best = solver.GetBest();
+        Trial best = solver.GetBest();
+        TestResult res;
         res.name = "HillFamily_" + to_string(i);
         res.iterations = solver.GetTrials().size();
         res.best_x = best.x;
@@ -126,8 +102,7 @@ void runHillTests(Solver& solver, const string& solver_name, int family_count, v
     }
 }
 
-void runShekelTests(Solver& solver, const string& solver_name, int family_count, vector<TestResult>& results, int Kmax, double eps, double a, double b) {
-    // Shekel Problem
+void runSingleShekelTest(Solver& solver, vector<TestResult>& results, int Kmax, double eps, double a, double b) {
     TShekelProblem shekel(0);
     vector<double> shekel_opt = shekel.GetOptimumPoint();
     double true_x = shekel_opt[0], true_f = shekel.GetOptimumValue();
@@ -139,13 +114,16 @@ void runShekelTests(Solver& solver, const string& solver_name, int family_count,
     
     solver.SetEps(eps);
     solver.SetKmax(Kmax);
-    if (solver_name == "GSA") dynamic_cast<GSASolver&>(solver).SetR(2.0);
+    
+    GSASolver* gsa = dynamic_cast<GSASolver*>(&solver);
+    if (gsa) gsa->SetR(2.0);
+    
     solver.SetTask(task);
     solver.Solve();
     
     Trial best = solver.GetBest();
     TestResult res;
-    res.name = "Shekel_0";
+    res.name = "Shekel";
     res.iterations = solver.GetTrials().size();
     res.best_x = best.x;
     res.best_f = best.z;
@@ -158,13 +136,16 @@ void runShekelTests(Solver& solver, const string& solver_name, int family_count,
     res.a = a;
     res.b = b;
     results.push_back(res);
-    
-    // Shekel Family
+}
+
+void runShekelFamilyTests(Solver& solver, int family_count, vector<TestResult>& results, int Kmax, double eps, double a, double b) {
     TShekelProblemFamily shekelFam;
     int shekelFamilySize = shekelFam.GetFamilySize();
-    int maxShekelFam = min(family_count, shekelFamilySize);
+    int ShekelFam = min(family_count, shekelFamilySize);
+    solver.SetEps(eps);
+    solver.SetKmax(Kmax); 
     
-    for (int i = 0; i < maxShekelFam; i++) {
+    for (int i = 0; i < ShekelFam; i++) {
         TShekelProblem shekelProb(i);
         vector<double> opt_point = shekelProb.GetOptimumPoint();
         double true_x = opt_point[0], true_f = shekelProb.GetOptimumValue();
@@ -177,7 +158,8 @@ void runShekelTests(Solver& solver, const string& solver_name, int family_count,
         solver.SetTask(fam_task);
         solver.Solve();
         
-        best = solver.GetBest();
+        Trial best = solver.GetBest();
+        TestResult res;
         res.name = "ShekelFamily_" + to_string(i);
         res.iterations = solver.GetTrials().size();
         res.best_x = best.x;
@@ -209,22 +191,32 @@ void printResults(const vector<TestResult>& results, const string& name) {
     for (const auto& r : results) {
         cout << left << setw(25) << r.name
              << setw(12) << r.iterations
-             << setw(14) << fixed << setprecision(6) << r.best_x
+             << setw(14) << setprecision(6) << r.best_x
              << setw(14) << r.true_x
-             << setw(12) << scientific << setprecision(4) << r.error_x
-             << setw(14) << fixed << setprecision(6) << r.best_f
+             << setw(12) << setprecision(4) << r.error_x
+             << setw(14) << setprecision(6) << r.best_f
              << setw(14) << r.true_f
              << endl;
     }
 }
 
-void printStats(const vector<TestResult>& results, const string& name, double threshold) {
+void printStatistics(const vector<TestResult>& results, const string& name, double error_count) {
     double total_iter = 0;
-    int success = 0, hill_success = 0, shekel_success = 0;
+    int success = 0;
+    int hill_success = 0, shekel_success = 0;
     int hill_count = 0, shekel_count = 0;
+    double min_iter = 1e9, max_iter = 0;
+    double min_error = 1e9, max_error = 0;
+    double total_error = 0;
     
     for (const auto& r : results) {
         total_iter += r.iterations;
+        total_error += r.error_x;
+        
+        min_iter = min(min_iter, (double)r.iterations);
+        max_iter = max(max_iter, (double)r.iterations);
+        min_error = min(min_error, r.error_x);
+        max_error = max(max_error, r.error_x);
         
         bool is_hill = (r.name.find("Hill") != string::npos);
         double range = is_hill ? 1.0 : 10.0;
@@ -232,89 +224,87 @@ void printStats(const vector<TestResult>& results, const string& name, double th
         
         if (is_hill) {
             hill_count++;
-            if (relative_error < threshold) { success++; hill_success++; }
+            if (relative_error < error_count) { success++; hill_success++; }
         } else {
             shekel_count++;
-            if (relative_error < threshold) { success++; shekel_success++; }
+            if (relative_error < error_count) { success++; shekel_success++; }
         }
     }
     
-    vector<int> iters;
-    for (const auto& r : results) iters.push_back(r.iterations);
-    sort(iters.begin(), iters.end());
+    double avg_iter = total_iter / results.size();
+    double avg_error = total_error / results.size();
     
-    cout << "\n" << name << " STATISTICS\n";
-    cout << "Total tests: " << results.size() << endl;
-    cout << "Hill tests: " << hill_count << ", Shekel tests: " << shekel_count << endl;
-    cout << "Successful (Hill): " << hill_success << " (" << (100.0 * hill_success / hill_count) << "%)" << endl;
-    cout << "Successful (Shekel): " << shekel_success << " (" << (100.0 * shekel_success / shekel_count) << "%)" << endl;
-    cout << "Successful (all): " << success << " (" << (100.0 * success / results.size()) << "%)" << endl;
-    cout << "Average iterations: " << (total_iter / results.size()) << endl;
-    cout << "Min iterations: " << iters[0] << endl;
-    cout << "Max iterations: " << iters[iters.size() - 1] << endl;
+    cout << "\nSTATISTICS FOR: " << name << "\n";
+    
+    if (hill_count > 0) cout << "Hill tests: " << hill_count << endl;
+    if (shekel_count > 0) cout << "Shekel tests: " << shekel_count << endl;
+    
+    if (hill_count > 0) 
+        cout << "Hill success: " << hill_success << "/" << hill_count << " (" << (100.0 * hill_success / hill_count) << "%)\n";
+    if (shekel_count > 0)
+        cout << "Shekel success: " << shekel_success << "/" << shekel_count  << " (" << (100.0 * shekel_success / shekel_count) << "%)\n";
+    
+    cout << "\niterations\n";
+    cout << "average: " << avg_iter << endl;
+    cout << "min: " << min_iter << endl;
+    cout << "max: " << max_iter << endl;
+    
+    cout << "\nerror in x\n";
+    cout << "average: " << avg_error << endl;
+    cout << "min: " << min_error << endl;
+    cout << "max: " << max_error << endl;
 }
 
-void visualSolver(const vector<TestResult>& results, const string& solver_name){
+void visualSolver(const vector<TestResult>& results, int test_choice) {
     OptimizationPlotter plotter;
-    const TestResult* best_hill = nullptr;
-    const TestResult* worst_hill = nullptr;
-    const TestResult* best_shekel = nullptr;
-    const TestResult* worst_shekel = nullptr;
 
-    for (const auto& r : results) {
-        if (r.name.find("Hill") != string::npos) {
-            if (best_hill == nullptr || r.iterations < best_hill->iterations) best_hill = &r;
-            if (worst_hill == nullptr || r.iterations > worst_hill->iterations) worst_hill = &r;
-        } else if (r.name.find("Shekel") != string::npos) {
-            if (best_shekel == nullptr || r.iterations < best_shekel->iterations) best_shekel = &r;
-            if (worst_shekel == nullptr || r.iterations > worst_shekel->iterations) worst_shekel = &r;
-        }
-    }
-    
-    int choice;
-    do {
-        cout << "\nvisualization " << solver_name << "\n";
-        cout << "1. Best Hill case\n";
-        cout << "2. Worst Hill case\n";
-        cout << "3. Best Shekel case\n";
-        cout << "4. Worst Shekel case\n";
-        cout << "0. Back\n";
-        cout << "choice: ";
-        cin >> choice;
-        
+    if (test_choice == 1 || test_choice == 2) {
+        const TestResult& res = results[0];
         Trial trial;
-        switch(choice) {
-            case 1:
-                trial.x = best_hill->best_x;
-                trial.z = best_hill->best_f;
-                trial.k = best_hill->iterations;
-                plotter.PlotAlgorithm(best_hill->trials, trial, best_hill->a, best_hill->b, solver_name + " - Best Hill: " + best_hill->name);
-                break;
-            case 2:
-                trial.x = worst_hill->best_x;
-                trial.z = worst_hill->best_f;
-                trial.k = worst_hill->iterations;
-                plotter.PlotAlgorithm(worst_hill->trials, trial, worst_hill->a, worst_hill->b, solver_name + " - Worst Hill: " + worst_hill->name);
-                break;
-            case 3:
-                trial.x = best_shekel->best_x;
-                trial.z = best_shekel->best_f;
-                trial.k = best_shekel->iterations;
-                plotter.PlotAlgorithm(best_shekel->trials, trial, best_shekel->a, best_shekel->b, solver_name + " - Best Shekel: " + best_shekel->name);
-                break;
-            case 4:
-                trial.x = worst_shekel->best_x;
-                trial.z = worst_shekel->best_f;
-                trial.k = worst_shekel->iterations;
-                plotter.PlotAlgorithm(worst_shekel->trials, trial, worst_shekel->a, worst_shekel->b, solver_name + " - Worst Shekel: " + worst_shekel->name);
-                break;
-            case 0:
-                break;
-            default:
-                cout << "Invalid choice\n";
+        trial.x = res.best_x;
+        trial.z = res.best_f;
+        trial.k = res.iterations;
+        plotter.PlotAlgorithm(res.trials, trial, res.a, res.b, res.name);
+    }
+    else if (test_choice == 3 || test_choice == 4) {
+        const TestResult* best_result = &results[0];
+        const TestResult* worst_result = &results[0];
+        
+        for (const auto& r : results) {
+            if (r.iterations < best_result->iterations) best_result = &r;
+            if (r.iterations > worst_result->iterations) worst_result = &r;
         }
         
-    } while (choice != 0);
+        int choice;
+        do {
+            cout << "\nvisualization\n";
+            cout << "1. best result (iterations: " << best_result->iterations << ")\n";
+            cout << "2. worst result (iterations: " << worst_result->iterations << ")\n";
+            cout << "0. back\n";
+            cout << "choice: ";
+            cin >> choice;
+            
+            Trial trial;
+            switch(choice) {
+                case 1:
+                    trial.x = best_result->best_x;
+                    trial.z = best_result->best_f;
+                    trial.k = best_result->iterations;
+                    plotter.PlotAlgorithm(best_result->trials, trial, best_result->a, best_result->b, "Best result: " + best_result->name);
+                    break;
+                case 2:
+                    trial.x = worst_result->best_x;
+                    trial.z = worst_result->best_f;
+                    trial.k = worst_result->iterations;
+                    plotter.PlotAlgorithm(worst_result->trials, trial, worst_result->a, worst_result->b, "Worst result: " + worst_result->name);
+                    break;
+                case 0:
+                    break;
+                default:
+                    cout << "invalid choice\n";
+            }
+        } while (choice != 0);
+    }
 }
 
 int main() {
@@ -325,46 +315,81 @@ int main() {
     
     vector<TestResult> gsa_results, scan_results;
     
+    int test_choice;
+    cout << "1. Hill\n";
+    cout << "2. Shekel\n";
+    cout << "3. HillFamily\n";
+    cout << "4. ShekelFamily \n";
+    cout << "choice: ";
+    cin >> test_choice;
+    
     GSASolver gsa_solver;
-    
-    runHillTests(gsa_solver, "GSA", fam_count, gsa_results, Kmax, eps, 0.0, 1.0);
-    runShekelTests(gsa_solver, "GSA", fam_count, gsa_results, Kmax, eps, 0.0, 10.0);
-    
     ScanSolver scan_solver;
     
-    runHillTests(scan_solver, "SCAN", fam_count, scan_results, Kmax, eps, 0.0, 1.0);
-    runShekelTests(scan_solver, "SCAN", fam_count, scan_results, Kmax, eps, 0.0, 10.0);
+    if (test_choice == 1) {
+        runSingleHillTest(gsa_solver, gsa_results, Kmax, eps, 0.0, 1.0);
+        runSingleHillTest(scan_solver, scan_results, Kmax, eps, 0.0, 1.0);
+    }
+    else if (test_choice == 2) {
+        runSingleShekelTest(gsa_solver, gsa_results, Kmax, eps, 0.0, 10.0);
+        runSingleShekelTest(scan_solver, scan_results, Kmax, eps, 0.0, 10.0);
+    }
+    else if (test_choice == 3) {
+        runHillFamilyTests(gsa_solver, fam_count, gsa_results, Kmax, eps, 0.0, 1.0);
+        runHillFamilyTests(scan_solver, fam_count, scan_results, Kmax, eps, 0.0, 1.0);
+    }
+    else if (test_choice == 4) {
+        runShekelFamilyTests(gsa_solver, fam_count, gsa_results, Kmax, eps, 0.0, 10.0);
+        runShekelFamilyTests(scan_solver, fam_count, scan_results, Kmax, eps, 0.0, 10.0);
+    }
     
     printResults(gsa_results, "GSA");
     printResults(scan_results, "SCAN");
     
-    printStats(gsa_results, "GSA", err_count);
-    printStats(scan_results, "SCAN", err_count);
+    if (test_choice == 1) {
+        printStatistics(gsa_results, "GSA - Hill", err_count);
+        printStatistics(scan_results, "SCAN - Hill", err_count);
+    }
+    else if (test_choice == 2) {
+        printStatistics(gsa_results, "GSA - Shekel", err_count);
+        printStatistics(scan_results, "SCAN - Shekel", err_count);
+    }
+    else if (test_choice == 3) {
+        printStatistics(gsa_results, "GSA - HillFamily", err_count);
+        printStatistics(scan_results, "SCAN - HillFamily", err_count);
+    }
+    else if (test_choice == 4) {
+        printStatistics(gsa_results, "GSA - ShekelFamily", err_count);
+        printStatistics(scan_results, "SCAN - ShekelFamily", err_count);
+    }    
     
-    saveResultsToCSV(gsa_results, "GSA", "gcgen_results.csv");
-    saveResultsToCSV(scan_results, "SCAN", "gcgen_results.csv");
-
-    int main_choice;
-    do {
-        cout << "\n1. Visualize GSA Solver results\n";
-        cout << "2. Visualize SCAN Solver results\n";
-        cout << "0. Exit\n";
-        cout << "choice: ";
-        cin >> main_choice;
-        
-        switch(main_choice) {
-            case 1:
-                visualSolver(gsa_results, "GSA");
-                break;
-            case 2:
-                visualSolver(scan_results, "SCAN");
-                break;
-            case 0:
-                break;
-            default:
-                cout << "Invalid choice\n";
-        }
-    } while (main_choice != 0);
+    int show_plot;
+    cout << "\nshow plots? (1 - Yes, 0 - No): ";
+    cin >> show_plot;
+    
+    if (show_plot == 1) {
+        int main_choice;
+        do {
+            cout << "\n1. visualize GSA Solver results\n";
+            cout << "2. visualize SCAN Solver results\n";
+            cout << "0. exit\n";
+            cout << "choice: ";
+            cin >> main_choice;
+            
+            switch(main_choice) {
+                case 1:
+                    visualSolver(gsa_results, test_choice);
+                    break;
+                case 2:
+                    visualSolver(scan_results, test_choice);
+                    break;
+                case 0:
+                    break;
+                default:
+                    cout << "invalid choice\n";
+            }
+        } while (main_choice != 0);
+    }
     
     return 0;
 }
