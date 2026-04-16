@@ -74,3 +74,20 @@ target_link_libraries(${TEST_TARGET}
     m
     pthread
 )
+
+# characteristics
+set(CHAR_TARGET characteristics)
+
+add_executable(${CHAR_TARGET} characteristics.cpp ${GCGEN_SOURCES})
+
+set_target_properties(${CHAR_TARGET} PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+target_link_libraries(${CHAR_TARGET}
+    ${DISLIN_CPP_LIB}
+    ${DISLIN_C_LIB}
+    ${X11_LIB}
+    m
+    pthread
+)

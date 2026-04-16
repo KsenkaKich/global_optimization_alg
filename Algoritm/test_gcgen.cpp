@@ -4,6 +4,7 @@
 #include <string>
 #include <iomanip>
 #include <algorithm>
+#include <chrono>
 #include "structs.h"
 #include "visualization.h"
 
@@ -13,6 +14,7 @@
 #include "Shekel/ShekelProblemFamily.hpp"
 
 using namespace std;
+using namespace std::chrono;
 
 struct TestResult {
     string name;
@@ -64,12 +66,14 @@ void runSingleHillTest(Solver& solver, vector<TestResult>& results, int Kmax, do
     results.push_back(res);
 }
 
-void runHillFamilyTests(Solver& solver, int family_count, vector<TestResult>& results, int Kmax, double eps, double a, double b) {
+void runHillFamilyTests(Solver& solver, int family_count, vector<TestResult>& results, int Kmax, double eps, double a, double b, double& total_time) {
     THillProblemFamily hillFam;
     int hillFamilySize = hillFam.GetFamilySize();
     int HillFam = min(family_count, hillFamilySize);
     solver.SetEps(eps);
     solver.SetKmax(Kmax); 
+    
+    total_time = 0;
     
     for (int i = 0; i < HillFam; i++) {
         THillProblem hillProb(i);
@@ -82,7 +86,11 @@ void runHillFamilyTests(Solver& solver, int family_count, vector<TestResult>& re
         fam_task.func = [&hillProb](double x) { return hillProb.ComputeFunction({x}); };
         
         solver.SetTask(fam_task);
+
+        auto start = high_resolution_clock::now();
         solver.Solve();
+        auto end = high_resolution_clock::now();
+        total_time += duration<double>(end - start).count();
         
         Trial best = solver.GetBest();
         TestResult res;
@@ -138,12 +146,13 @@ void runSingleShekelTest(Solver& solver, vector<TestResult>& results, int Kmax, 
     results.push_back(res);
 }
 
-void runShekelFamilyTests(Solver& solver, int family_count, vector<TestResult>& results, int Kmax, double eps, double a, double b) {
+void runShekelFamilyTests(Solver& solver, int family_count, vector<TestResult>& results, int Kmax, double eps, double a, double b, double& total_time) {
     TShekelProblemFamily shekelFam;
     int shekelFamilySize = shekelFam.GetFamilySize();
     int ShekelFam = min(family_count, shekelFamilySize);
     solver.SetEps(eps);
     solver.SetKmax(Kmax); 
+    total_time = 0;
     
     for (int i = 0; i < ShekelFam; i++) {
         TShekelProblem shekelProb(i);
@@ -156,7 +165,11 @@ void runShekelFamilyTests(Solver& solver, int family_count, vector<TestResult>& 
         fam_task.func = [&shekelProb](double x) { return shekelProb.ComputeFunction({x}); };
         
         solver.SetTask(fam_task);
+
+        auto start = high_resolution_clock::now();
         solver.Solve();
+        auto end = high_resolution_clock::now();
+        total_time += duration<double>(end - start).count();
         
         Trial best = solver.GetBest();
         TestResult res;
@@ -176,31 +189,32 @@ void runShekelFamilyTests(Solver& solver, int family_count, vector<TestResult>& 
     }
 }
 
-void printResults(const vector<TestResult>& results, const string& name) {
-    cout << "\n" << name << " results\n";
+void printResults(const vector<TestResult>& results, const string& name, ofstream& outFile) {
     
-    cout << left << setw(25) << "Function"
-         << setw(12) << "Iters"
-         << setw(14) << "Best x"
-         << setw(14) << "True x"
-         << setw(12) << "Error x"
-         << setw(14) << "Best f"
-         << setw(14) << "True f"
-         << endl;
+    outFile << "\n" << name << " results\n";
+    
+    outFile << left << setw(25) << "Function"
+            << setw(12) << "Iters"
+            << setw(14) << "Best x"
+            << setw(14) << "True x"
+            << setw(12) << "Error x"
+            << setw(14) << "Best f"
+            << setw(14) << "True f"
+            << endl;
 
     for (const auto& r : results) {
-        cout << left << setw(25) << r.name
-             << setw(12) << r.iterations
-             << setw(14) << setprecision(6) << r.best_x
-             << setw(14) << r.true_x
-             << setw(12) << setprecision(4) << r.error_x
-             << setw(14) << setprecision(6) << r.best_f
-             << setw(14) << r.true_f
-             << endl;
+        outFile << left << setw(25) << r.name
+                << setw(12) << r.iterations
+                << setw(14) << setprecision(6) << r.best_x
+                << setw(14) << r.true_x
+                << setw(12) << setprecision(4) << r.error_x
+                << setw(14) << setprecision(6) << r.best_f
+                << setw(14) << r.true_f
+                << endl;
     }
 }
 
-void printStatistics(const vector<TestResult>& results, const string& name, double error_count) {
+void printStatistics(const vector<TestResult>& results, const string& name, double error_count, double time = -1) {
     double total_iter = 0;
     int success = 0;
     int hill_success = 0, shekel_success = 0;
@@ -244,6 +258,8 @@ void printStatistics(const vector<TestResult>& results, const string& name, doub
     if (shekel_count > 0)
         cout << "Shekel success: " << shekel_success << "/" << shekel_count  << " (" << (100.0 * shekel_success / shekel_count) << "%)\n";
     
+    if (time >= 0) cout << "time: " << time << " sec\n";
+
     cout << "\niterations\n";
     cout << "average: " << avg_iter << endl;
     cout << "min: " << min_iter << endl;
@@ -308,12 +324,12 @@ void visualSolver(const vector<TestResult>& results, int test_choice) {
 }
 
 int main() {
-    const int Kmax = 1000;
-    const double eps = 1e-6;
-    const double err_count = 0.0001;
-    const int fam_count = 20;
+    const int Kmax = 500;
+    const double eps = 1e-4;
+    const int fam_count = 1000;
     
     vector<TestResult> gsa_results, scan_results;
+    double gsa_total_time = 0, scan_total_time = 0;
     
     int test_choice;
     cout << "1. Hill\n";
@@ -335,32 +351,35 @@ int main() {
         runSingleShekelTest(scan_solver, scan_results, Kmax, eps, 0.0, 10.0);
     }
     else if (test_choice == 3) {
-        runHillFamilyTests(gsa_solver, fam_count, gsa_results, Kmax, eps, 0.0, 1.0);
-        runHillFamilyTests(scan_solver, fam_count, scan_results, Kmax, eps, 0.0, 1.0);
+        runHillFamilyTests(gsa_solver, fam_count, gsa_results, Kmax, eps, 0.0, 1.0, gsa_total_time);
+        runHillFamilyTests(scan_solver, fam_count, scan_results, Kmax, eps, 0.0, 1.0, scan_total_time);
     }
     else if (test_choice == 4) {
-        runShekelFamilyTests(gsa_solver, fam_count, gsa_results, Kmax, eps, 0.0, 10.0);
-        runShekelFamilyTests(scan_solver, fam_count, scan_results, Kmax, eps, 0.0, 10.0);
+        runShekelFamilyTests(gsa_solver, fam_count, gsa_results, Kmax, eps, 0.0, 10.0, gsa_total_time);
+        runShekelFamilyTests(scan_solver, fam_count, scan_results, Kmax, eps, 0.0, 10.0, scan_total_time);
     }
+
+    ofstream outFile("results.txt", ios::trunc);
     
-    printResults(gsa_results, "GSA");
-    printResults(scan_results, "SCAN");
+    printResults(gsa_results, "GSA", outFile);
+    printResults(scan_results, "SCAN", outFile);
+    outFile.close();
     
     if (test_choice == 1) {
-        printStatistics(gsa_results, "GSA - Hill", err_count);
-        printStatistics(scan_results, "SCAN - Hill", err_count);
+        printStatistics(gsa_results, "GSA - Hill", eps);
+        printStatistics(scan_results, "SCAN - Hill", eps);
     }
     else if (test_choice == 2) {
-        printStatistics(gsa_results, "GSA - Shekel", err_count);
-        printStatistics(scan_results, "SCAN - Shekel", err_count);
+        printStatistics(gsa_results, "GSA - Shekel", eps);
+        printStatistics(scan_results, "SCAN - Shekel", eps);
     }
     else if (test_choice == 3) {
-        printStatistics(gsa_results, "GSA - HillFamily", err_count);
-        printStatistics(scan_results, "SCAN - HillFamily", err_count);
+        printStatistics(gsa_results, "GSA - HillFamily", eps, gsa_total_time);
+        printStatistics(scan_results, "SCAN - HillFamily", eps, scan_total_time);
     }
     else if (test_choice == 4) {
-        printStatistics(gsa_results, "GSA - ShekelFamily", err_count);
-        printStatistics(scan_results, "SCAN - ShekelFamily", err_count);
+        printStatistics(gsa_results, "GSA - ShekelFamily", eps, gsa_total_time);
+        printStatistics(scan_results, "SCAN - ShekelFamily", eps, scan_total_time);
     }    
     
     int show_plot;

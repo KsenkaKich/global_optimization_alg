@@ -4,9 +4,6 @@
 #include <functional>
 #include <iostream>
 #include <vector>
-#include <fstream>
-#include <string>
-#include <iomanip>
 
 struct Trial {
     double x;
@@ -30,7 +27,6 @@ protected:
     std::vector<Trial> Trials;
     Task task;
     Trial bestTrial;
-    std::ofstream outputFile; 
 
 public:
     Solver() : eps(0.001), Kmax(100) {}
@@ -41,12 +37,7 @@ public:
         : eps(other.eps), Kmax(other.Kmax),
         Trials(other.Trials), task(other.task), bestTrial(other.bestTrial) {
     }
-    virtual ~Solver() {
-        if (outputFile.is_open()) {
-            outputFile.flush(); 
-            outputFile.close();
-        }
-    };
+    virtual ~Solver() {};
 
     virtual void SetTask(Task t) { task = t; }
     virtual void SetEps(double eps_val) { eps = eps_val; }
@@ -81,7 +72,6 @@ public:
     bool CheckPointExists(double x) {
         for (const auto& trial : Trials) {
             if (std::abs(trial.x - x) < 1e-15) {
-                std::cout << "The point already exists" << std::endl;
                 return true;
             }
         }
@@ -90,24 +80,6 @@ public:
 
     void InsertNewTrial(const Trial& newTrial, size_t t) {
         Trials.insert(Trials.begin() + t + 1, newTrial);
-    }
-
-    void OpenOutputFile(const std::string& filename) {
-        outputFile.open(filename);
-        if (!outputFile.is_open()) {
-            std::cerr << "Error opening file: " << filename << std::endl;
-            return;
-        }
-        outputFile << "Iteration,x,f(x)\n";
-        outputFile.flush();
-    }
-
-    void WriteTrialToFile(const Trial& trial) {
-        if (outputFile.is_open()) {
-            outputFile << std::fixed << std::setprecision(15);
-            outputFile << trial.k << "," << trial.x << "," << trial.z << "\n";
-            outputFile.flush();
-        }
     }
 
     virtual void Solve() {
@@ -143,10 +115,6 @@ public:
         Initialize();
         FirstTrial();
 
-        OpenOutputFile("gsa_results.csv");
-        WriteTrialToFile(Trials[0]);
-        WriteTrialToFile(Trials[1]);
-
         int k = 2;
         bool Stop = false;
 
@@ -160,7 +128,6 @@ public:
             if (!CheckPointExists(newTrial.x)) {
                 InsertNewTrial(newTrial, t);
                 k++;
-                WriteTrialToFile(newTrial);
             }
         }
     }
@@ -236,10 +203,6 @@ public:
         Initialize();
         FirstTrial();
 
-        OpenOutputFile("scan_results.csv");
-        WriteTrialToFile(Trials[0]);
-        WriteTrialToFile(Trials[1]);
-        
         int k = 2;
         bool Stop = false;
 
@@ -256,8 +219,6 @@ public:
                 if (!CheckPointExists(newTrial.x)) {
                     InsertNewTrial(newTrial, t);
                     k++;
-                    
-                    WriteTrialToFile(newTrial);
                 }
             }
         }

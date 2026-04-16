@@ -7,4 +7,4 @@ How to compile and run tests:
 3. cmake ..
 4. make
 5. cd ..
-6. ./test_gcgen
+6. ./test_gcgen or ./characteristics or ./optimization
