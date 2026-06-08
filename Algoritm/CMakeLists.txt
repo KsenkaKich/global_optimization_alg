@@ -34,6 +34,8 @@ set(MAIN_TARGET optimization)
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${DISLIN_INCLUDE_DIR}
+    ${GCGEN_SAMPLE_INCLUDE}
+    ${GCGEN_CORE_INCLUDE}
 )
 
 link_directories(${DISLIN_LIB_DIR})

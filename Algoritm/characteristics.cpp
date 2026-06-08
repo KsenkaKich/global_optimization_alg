@@ -49,6 +49,7 @@ public:
             iterations_needed[i] = solver.GetTrials().size();
         }
         
+        //доля успешных решений
         vector<double> success_rate(Kmax + 1, 0.0);
         for (int iter = 1; iter <= Kmax; iter++) {
             int solved = 0;
@@ -90,6 +91,7 @@ public:
             iterations_needed[i] = solver.GetTrials().size();
         }
         
+        //доля успешных решений
         vector<double> success_rate(Kmax + 1, 0.0);
         for (int iter = 1; iter <= Kmax; iter++) {
             int solved = 0;

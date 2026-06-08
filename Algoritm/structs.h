@@ -4,6 +4,7 @@
 #include <functional>
 #include <iostream>
 #include <vector>
+#include <limits>
 
 struct Trial {
     double x;
@@ -102,90 +103,55 @@ public:
         }
         return bestTrial;
     }
+    
+    virtual int GetIterations() const {
+        return Trials.size();
+    }
 };
 
-class GSASolver : public Solver{
+class GSASolver : public Solver {
 private:
     double r;
-public:
-    GSASolver(): Solver(), r(2.0) {}
-    void SetR(double r_val) { r = r_val; }
-
-    void Solve() override {
-        Initialize();
-        FirstTrial();
-
-        int k = 2;
-        bool Stop = false;
-
-        while (k < Kmax && !Stop) {
-            double m = EstimateM();
-            std::vector<double> R = CalculateR(m);
-            size_t t = FindMaxR(R);
-            Stop = CheckStopCondition(t);
-            double x = CalculateNewX(t, m);
-            Trial newTrial = MakeNewTrial(x, k + 1);
-            if (!CheckPointExists(newTrial.x)) {
-                InsertNewTrial(newTrial, t);
-                k++;
-            }
-        }
-    }
-
+    int p;
+    
     double EstimateM() {
         size_t n = Trials.size() - 1;
         double M = 0.0;
         for (size_t i = 1; i <= n; i++) {
-            double MInter = std::abs((Trials[i].z - Trials[i - 1].z) /
-                (Trials[i].x - Trials[i - 1].x));
-            M = std::max(M, MInter);
+            double dx = Trials[i].x - Trials[i - 1].x;
+            if (dx > 1e-15) {
+                double MInter = std::abs((Trials[i].z - Trials[i - 1].z) / dx);
+                if (MInter > M) M = MInter;
+            }
         }
         if (M > 0) {
             return r * M;
         }
-        else {
-            return 1.0;
-        }
+        return 1.0;
     }
-
-    std::vector<double> CalculateR(double m) {
+    
+    std::vector<double> CalculateAllR(double m) {
         size_t n = Trials.size() - 1;
         std::vector<double> R(n);
         for (size_t i = 0; i < n; i++) {
             double delta_x = Trials[i + 1].x - Trials[i].x;
             double delta_z = Trials[i + 1].z - Trials[i].z;
-
-            R[i] = m * delta_x + (delta_z * delta_z) / (m * delta_x)
-                - 2.0 * (Trials[i + 1].z + Trials[i].z);
+            
+            if (delta_x > 1e-15 && m > 1e-15) {
+                R[i] = m * delta_x + (delta_z * delta_z) / (m * delta_x)
+                     - 2.0 * (Trials[i + 1].z + Trials[i].z);
+            } else {
+                R[i] = -std::numeric_limits<double>::infinity();
+            }
         }
         return R;
     }
-
-    size_t FindMaxR(const std::vector<double>& R) {
-        size_t n = Trials.size() - 1;
-        size_t t = 0;
-        double maxR = R[0];
-        for (size_t i = 1; i < n; i++) {
-            if (R[i] > maxR) {
-                maxR = R[i];
-                t = i;
-            }
-        }
-
-        for (size_t i = 0; i < n; i++) {
-            if (R[i] == maxR) {
-                t = i;
-                break;
-            }
-        }
-        return t;
-    }
-
+    
     double CalculateNewX(size_t t, double m) {
         return (Trials[t + 1].x + Trials[t].x) / 2.0
             - (Trials[t + 1].z - Trials[t].z) / (2.0 * m);
     }
-
+    
     Trial MakeNewTrial(double x, int k) {
         Trial newTrial;
         newTrial.k = k;
@@ -193,13 +159,72 @@ public:
         newTrial.z = task.func(x);
         return newTrial;
     }
+    
+public:
+    GSASolver() : Solver(), r(2.0), p(1) {}
+    
+    void SetR(double r_val) { r = r_val; }
+    void SetP(int p_val) { p = p_val; }
+    int GetP() const { return p; }
+    int GetIterations() const override { return Trials.size(); }
+
+    void Solve() override {
+        Initialize();
+        FirstTrial();
+        
+        int k = 2;
+        
+        while (k < Kmax) {
+            double m = EstimateM();
+            std::vector<double> R = CalculateAllR(m);
+            
+            size_t n = R.size();
+            if (n == 0) break;
+            
+            std::vector<size_t> indices(n);
+            for (size_t i = 0; i < n; i++) indices[i] = i;
+            
+            std::sort(indices.begin(), indices.end(), [&R](size_t a, size_t b) { return R[a] > R[b]; });
+            
+            int take = std::min(p, (int)n);
+            
+            if (CheckStopCondition(indices[0])) break;
+            
+            std::vector<Trial> new_trials;
+            new_trials.reserve(take);
+            
+            for (int idx = 0; idx < take; idx++) {
+                size_t t = indices[idx];
+                double x_new = CalculateNewX(t, m);
+                if (!CheckPointExists(x_new)) {
+                    new_trials.push_back(MakeNewTrial(x_new, k + 1));
+                }
+            }
+            
+            if (new_trials.empty()) break;
+            
+            std::sort(new_trials.begin(), new_trials.end(), [](const Trial& a, const Trial& b) { return a.x < b.x; });
+            
+            for (int idx = new_trials.size() - 1; idx >= 0; idx--) {
+                size_t pos = 0;
+                while (pos < Trials.size() - 1 && Trials[pos + 1].x < new_trials[idx].x) {
+                    pos++;
+                }
+                
+                if (!CheckPointExists(new_trials[idx].x)) {
+                    Trials.insert(Trials.begin() + pos + 1, new_trials[idx]);
+                    k++;
+                }
+            }
+        }
+    }
 };
 
-class ScanSolver : public Solver{
+class ScanSolver : public Solver {
 public:
     ScanSolver() : Solver() {}
+    
     void Solve() override {
-        
         Initialize();
         FirstTrial();
 
@@ -223,6 +248,7 @@ public:
             }
         }
     }
+    
     size_t FindLongestInterval() {
         if (Trials.size() < 2) {
             return 0;
@@ -252,5 +278,9 @@ public:
         newTrial.x = x;
         newTrial.z = task.func(x);
         return newTrial;
+    }
+    
+    int GetIterations() const override {
+        return Trials.size();
     }
 };

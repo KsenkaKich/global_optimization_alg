@@ -189,6 +189,96 @@ void runShekelFamilyTests(Solver& solver, int family_count, vector<TestResult>& 
     }
 }
 
+void runParallelHillFamily(GSASolver& solver, int family_count, vector<TestResult>& results, int Kmax, double eps, double a, double b, double& total_time) {
+    THillProblemFamily hillFam;
+    int hillFamilySize = hillFam.GetFamilySize();
+    int HillFam = min(family_count, hillFamilySize);
+    solver.SetEps(eps);
+    solver.SetKmax(Kmax);
+    solver.SetR(2.0);
+    solver.SetP(4);
+    total_time = 0;
+    
+    for (int i = 0; i < HillFam; i++) {
+        THillProblem hillProb(i);
+        vector<double> opt_point = hillProb.GetOptimumPoint();
+        double true_x = opt_point[0], true_f = hillProb.GetOptimumValue();
+        
+        Task fam_task;
+        fam_task.a = a;
+        fam_task.b = b;
+        fam_task.func = [&hillProb](double x) { return hillProb.ComputeFunction({x}); };
+        
+        solver.SetTask(fam_task);
+        
+        auto start = high_resolution_clock::now();
+        solver.Solve();
+        auto end = high_resolution_clock::now();
+        total_time += duration<double>(end - start).count();
+        
+        Trial best = solver.GetBest();
+        TestResult res;
+        res.name = "Parallel_HillFamily_" + to_string(i);
+        res.iterations = solver.GetIterations();
+        res.best_x = best.x;
+        res.best_f = best.z;
+        res.true_x = true_x;
+        res.true_f = true_f;
+        res.error_x = abs(best.x - true_x);
+        res.error_f = abs(best.z - true_f);
+        res.trials = solver.GetTrials();
+        res.func = fam_task.func;
+        res.a = a;
+        res.b = b;
+        results.push_back(res);
+    }
+}
+
+void runParallelShekelFamily(GSASolver& solver, int family_count, vector<TestResult>& results, int Kmax, double eps, double a, double b, double& total_time) {
+    TShekelProblemFamily shekelFam;
+    int shekelFamilySize = shekelFam.GetFamilySize();
+    int ShekelFam = min(family_count, shekelFamilySize);
+    solver.SetEps(eps);
+    solver.SetKmax(Kmax);
+    solver.SetR(2.0);
+    solver.SetP(4);
+    total_time = 0;
+    
+    for (int i = 0; i < ShekelFam; i++) {
+        TShekelProblem shekelProb(i);
+        vector<double> opt_point = shekelProb.GetOptimumPoint();
+        double true_x = opt_point[0], true_f = shekelProb.GetOptimumValue();
+        
+        Task fam_task;
+        fam_task.a = a;
+        fam_task.b = b;
+        fam_task.func = [&shekelProb](double x) { return shekelProb.ComputeFunction({x}); };
+        
+        solver.SetTask(fam_task);
+        
+        auto start = high_resolution_clock::now();
+        solver.Solve();
+        auto end = high_resolution_clock::now();
+        total_time += duration<double>(end - start).count();
+        
+        Trial best = solver.GetBest();
+        TestResult res;
+        res.name = "Parallel_ShekelFamily_" + to_string(i);
+        res.iterations = solver.GetIterations();
+        res.best_x = best.x;
+        res.best_f = best.z;
+        res.true_x = true_x;
+        res.true_f = true_f;
+        res.error_x = abs(best.x - true_x);
+        res.error_f = abs(best.z - true_f);
+        res.trials = solver.GetTrials();
+        res.func = fam_task.func;
+        res.a = a;
+        res.b = b;
+        results.push_back(res);
+    }
+}
+
 void printResults(const vector<TestResult>& results, const string& name, ofstream& outFile) {
     
     outFile << "\n" << name << " results\n";
@@ -271,6 +361,21 @@ void printStatistics(const vector<TestResult>& results, const string& name, doub
     cout << "max: " << max_error << endl;
 }
 
+void printComparison(const string& problem_name, const vector<TestResult>& seq_results, const vector<TestResult>& par_results, double seq_time, double par_time) {
+    double avg_seq_iter = 0, avg_par_iter = 0;
+    for (const auto& r : seq_results) avg_seq_iter += r.iterations;
+    for (const auto& r : par_results) avg_par_iter += r.iterations;
+    avg_seq_iter /= seq_results.size();
+    avg_par_iter /= par_results.size();
+    
+    cout << "\nCOMPARISON: " << problem_name << "\n";
+    cout << "sequential time: " << seq_time << " sec\n";
+    cout << "parallel time:   " << par_time << " sec\n";
+    cout << "speedup:         " << (seq_time / par_time) << "x\n";
+    cout << "\nsequential avg iterations: " << (int)avg_seq_iter << "\n";
+    cout << "parallel avg iterations:   " << (int)avg_par_iter << "\n";
+}
+
 void visualSolver(const vector<TestResult>& results, int test_choice) {
     OptimizationPlotter plotter;
 
@@ -282,7 +387,7 @@ void visualSolver(const vector<TestResult>& results, int test_choice) {
         trial.k = res.iterations;
         plotter.PlotAlgorithm(res.trials, trial, res.a, res.b, res.name);
     }
-    else if (test_choice == 3 || test_choice == 4) {
+    else if (test_choice == 3 || test_choice == 4 || test_choice == 5 || test_choice == 6) {
         const TestResult* best_result = &results[0];
         const TestResult* worst_result = &results[0];
         
@@ -328,19 +433,22 @@ int main() {
     const double eps = 1e-4;
     const int fam_count = 1000;
     
-    vector<TestResult> gsa_results, scan_results;
-    double gsa_total_time = 0, scan_total_time = 0;
+    vector<TestResult> gsa_results, scan_results, parallel_results;
+    double gsa_total_time = 0, scan_total_time = 0, parallel_total_time = 0;
     
     int test_choice;
     cout << "1. Hill\n";
     cout << "2. Shekel\n";
     cout << "3. HillFamily\n";
     cout << "4. ShekelFamily \n";
+    cout << "5. parallel: HillFamily\n";
+    cout << "6. parallel: ShekelFamily\n";
     cout << "choice: ";
     cin >> test_choice;
     
     GSASolver gsa_solver;
     ScanSolver scan_solver;
+    GSASolver parallel_solver;
     
     if (test_choice == 1) {
         runSingleHillTest(gsa_solver, gsa_results, Kmax, eps, 0.0, 1.0);
@@ -358,11 +466,24 @@ int main() {
         runShekelFamilyTests(gsa_solver, fam_count, gsa_results, Kmax, eps, 0.0, 10.0, gsa_total_time);
         runShekelFamilyTests(scan_solver, fam_count, scan_results, Kmax, eps, 0.0, 10.0, scan_total_time);
     }
+    else if (test_choice == 5) {
+        runParallelHillFamily(parallel_solver, fam_count, parallel_results, Kmax, eps, 0.0, 1.0, parallel_total_time);
+        runHillFamilyTests(gsa_solver, fam_count, gsa_results, Kmax, eps, 0.0, 1.0, gsa_total_time);
+    }
+    else if (test_choice == 6) {
+        runParallelShekelFamily(parallel_solver, fam_count, parallel_results, Kmax, eps, 0.0, 10.0, parallel_total_time);
+        runShekelFamilyTests(gsa_solver, fam_count, gsa_results, Kmax, eps, 0.0, 10.0, gsa_total_time);
+    }
 
     ofstream outFile("results.txt", ios::trunc);
     
-    printResults(gsa_results, "GSA", outFile);
-    printResults(scan_results, "SCAN", outFile);
+    if (test_choice <= 4) {
+        printResults(gsa_results, "GSA", outFile);
+        printResults(scan_results, "SCAN", outFile);
+    } else {
+        printResults(gsa_results, "SEQUENTIAL (GSA)", outFile);
+        printResults(parallel_results, "PARALLEL (GSA)", outFile);
+    }
     outFile.close();
     
     if (test_choice == 1) {
@@ -380,6 +501,16 @@ int main() {
     else if (test_choice == 4) {
         printStatistics(gsa_results, "GSA - ShekelFamily", eps, gsa_total_time);
         printStatistics(scan_results, "SCAN - ShekelFamily", eps, scan_total_time);
+    }
+    else if (test_choice == 5) {
+        printStatistics(gsa_results, "SEQUENTIAL - HillFamily", eps, gsa_total_time);
+        printStatistics(parallel_results, "PARALLEL - HillFamily", eps, parallel_total_time);
+        printComparison("HillFamily", gsa_results, parallel_results, gsa_total_time, parallel_total_time);
+    }
+    else if (test_choice == 6) {
+        printStatistics(gsa_results, "SEQUENTIAL - ShekelFamily", eps, gsa_total_time);
+        printStatistics(parallel_results, "PARALLEL - ShekelFamily", eps, parallel_total_time);
+        printComparison("ShekelFamily", gsa_results, parallel_results, gsa_total_time, parallel_total_time);
     }    
     
     int show_plot;
@@ -389,18 +520,21 @@ int main() {
     if (show_plot == 1) {
         int main_choice;
         do {
-            cout << "\n1. visualize GSA Solver results\n";
-            cout << "2. visualize SCAN Solver results\n";
+            cout << "\n1. visualize GSA/Sequential results\n";
+            if (test_choice <= 4) cout << "2. visualize SCAN results\n";
+            else cout << "2. visualize PARALLEL results\n";
             cout << "0. exit\n";
             cout << "choice: ";
             cin >> main_choice;
             
             switch(main_choice) {
                 case 1:
-                    visualSolver(gsa_results, test_choice);
+                    if (test_choice <= 4) visualSolver(gsa_results, test_choice);
+                    else visualSolver(gsa_results, test_choice);
                     break;
                 case 2:
-                    visualSolver(scan_results, test_choice);
+                    if (test_choice <= 4) visualSolver(scan_results, test_choice);
+                    else visualSolver(parallel_results, test_choice);
                     break;
                 case 0:
                     break;
