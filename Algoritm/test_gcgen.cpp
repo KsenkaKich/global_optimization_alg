@@ -19,6 +19,7 @@ using namespace std::chrono;
 struct TestResult {
     string name;
     int iterations;
+    int trials_count;
     double best_x;
     double best_f;
     double true_x;
@@ -52,7 +53,8 @@ void runSingleHillTest(Solver& solver, vector<TestResult>& results, int Kmax, do
     Trial best = solver.GetBest();
     TestResult res;
     res.name = "Hill";
-    res.iterations = solver.GetTrials().size();
+    res.iterations   = solver.GetIterations();
+    res.trials_count = solver.GetTrialsCount();
     res.best_x = best.x;
     res.best_f = best.z;
     res.true_x = true_x;
@@ -95,7 +97,8 @@ void runHillFamilyTests(Solver& solver, int family_count, vector<TestResult>& re
         Trial best = solver.GetBest();
         TestResult res;
         res.name = "HillFamily_" + to_string(i);
-        res.iterations = solver.GetTrials().size();
+        res.iterations   = solver.GetIterations();
+        res.trials_count = solver.GetTrialsCount();
         res.best_x = best.x;
         res.best_f = best.z;
         res.true_x = true_x;
@@ -132,7 +135,8 @@ void runSingleShekelTest(Solver& solver, vector<TestResult>& results, int Kmax, 
     Trial best = solver.GetBest();
     TestResult res;
     res.name = "Shekel";
-    res.iterations = solver.GetTrials().size();
+    res.iterations   = solver.GetIterations();
+    res.trials_count = solver.GetTrialsCount();
     res.best_x = best.x;
     res.best_f = best.z;
     res.true_x = true_x;
@@ -174,7 +178,8 @@ void runShekelFamilyTests(Solver& solver, int family_count, vector<TestResult>& 
         Trial best = solver.GetBest();
         TestResult res;
         res.name = "ShekelFamily_" + to_string(i);
-        res.iterations = solver.GetTrials().size();
+        res.iterations   = solver.GetIterations();
+        res.trials_count = solver.GetTrialsCount();
         res.best_x = best.x;
         res.best_f = best.z;
         res.true_x = true_x;
@@ -196,7 +201,7 @@ void runParallelHillFamily(GSASolver& solver, int family_count, vector<TestResul
     solver.SetEps(eps);
     solver.SetKmax(Kmax);
     solver.SetR(2.0);
-    solver.SetP(4);
+    solver.SetP(2);
     total_time = 0;
     
     for (int i = 0; i < HillFam; i++) {
@@ -220,6 +225,7 @@ void runParallelHillFamily(GSASolver& solver, int family_count, vector<TestResul
         TestResult res;
         res.name = "Parallel_HillFamily_" + to_string(i);
         res.iterations = solver.GetIterations();
+        res.trials_count = solver.GetTrialsCount();
         res.best_x = best.x;
         res.best_f = best.z;
         res.true_x = true_x;
@@ -241,7 +247,7 @@ void runParallelShekelFamily(GSASolver& solver, int family_count, vector<TestRes
     solver.SetEps(eps);
     solver.SetKmax(Kmax);
     solver.SetR(2.0);
-    solver.SetP(4);
+    solver.SetP(2);
     total_time = 0;
     
     for (int i = 0; i < ShekelFam; i++) {
@@ -265,6 +271,7 @@ void runParallelShekelFamily(GSASolver& solver, int family_count, vector<TestRes
         TestResult res;
         res.name = "Parallel_ShekelFamily_" + to_string(i);
         res.iterations = solver.GetIterations();
+        res.trials_count = solver.GetTrialsCount();
         res.best_x = best.x;
         res.best_f = best.z;
         res.true_x = true_x;
@@ -285,6 +292,7 @@ void printResults(const vector<TestResult>& results, const string& name, ofstrea
     
     outFile << left << setw(25) << "Function"
             << setw(12) << "Iters"
+            << setw(12) << "Count"
             << setw(14) << "Best x"
             << setw(14) << "True x"
             << setw(12) << "Error x"
@@ -295,6 +303,7 @@ void printResults(const vector<TestResult>& results, const string& name, ofstrea
     for (const auto& r : results) {
         outFile << left << setw(25) << r.name
                 << setw(12) << r.iterations
+                << setw(12) << r.trials_count
                 << setw(14) << setprecision(6) << r.best_x
                 << setw(14) << r.true_x
                 << setw(12) << setprecision(4) << r.error_x
@@ -306,19 +315,24 @@ void printResults(const vector<TestResult>& results, const string& name, ofstrea
 
 void printStatistics(const vector<TestResult>& results, const string& name, double error_count, double time = -1) {
     double total_iter = 0;
+    double total_trials = 0;
     int success = 0;
     int hill_success = 0, shekel_success = 0;
     int hill_count = 0, shekel_count = 0;
     double min_iter = 1e9, max_iter = 0;
+    double min_trials = 1e9, max_trials = 0;
     double min_error = 1e9, max_error = 0;
     double total_error = 0;
     
     for (const auto& r : results) {
         total_iter += r.iterations;
+        total_trials += r.trials_count;
         total_error += r.error_x;
         
         min_iter = min(min_iter, (double)r.iterations);
         max_iter = max(max_iter, (double)r.iterations);
+        min_trials = min(min_trials, (double)r.trials_count);
+        max_trials = max(max_trials, (double)r.trials_count);
         min_error = min(min_error, r.error_x);
         max_error = max(max_error, r.error_x);
         
@@ -336,6 +350,7 @@ void printStatistics(const vector<TestResult>& results, const string& name, doub
     }
     
     double avg_iter = total_iter / results.size();
+    double avg_trials = total_trials / results.size();
     double avg_error = total_error / results.size();
     
     cout << "\nSTATISTICS FOR: " << name << "\n";
@@ -354,6 +369,11 @@ void printStatistics(const vector<TestResult>& results, const string& name, doub
     cout << "average: " << avg_iter << endl;
     cout << "min: " << min_iter << endl;
     cout << "max: " << max_iter << endl;
+
+    cout << "\ntrials count\n";
+    cout << "average: " << avg_trials << endl;
+    cout << "min: " << min_trials << endl;
+    cout << "max: " << max_trials << endl;
     
     cout << "\nerror in x\n";
     cout << "average: " << avg_error << endl;
@@ -363,17 +383,33 @@ void printStatistics(const vector<TestResult>& results, const string& name, doub
 
 void printComparison(const string& problem_name, const vector<TestResult>& seq_results, const vector<TestResult>& par_results, double seq_time, double par_time) {
     double avg_seq_iter = 0, avg_par_iter = 0;
-    for (const auto& r : seq_results) avg_seq_iter += r.iterations;
-    for (const auto& r : par_results) avg_par_iter += r.iterations;
-    avg_seq_iter /= seq_results.size();
-    avg_par_iter /= par_results.size();
-    
+    double avg_seq_trials = 0, avg_par_trials = 0;
+
+    double n_seq = (double)seq_results.size();
+    double n_par = (double)par_results.size();
+
+    for (const auto& r : seq_results) {
+        avg_seq_iter   += r.iterations;
+        avg_seq_trials += r.trials_count;
+    }
+    for (const auto& r : par_results) {
+        avg_par_iter   += r.iterations;
+        avg_par_trials += r.trials_count;
+    }
+
+    avg_seq_iter   /= n_seq;
+    avg_par_iter   /= n_par;
+    avg_seq_trials /= n_seq;
+    avg_par_trials /= n_par;
+
     cout << "\nCOMPARISON: " << problem_name << "\n";
     cout << "sequential time: " << seq_time << " sec\n";
     cout << "parallel time:   " << par_time << " sec\n";
     cout << "speedup:         " << (seq_time / par_time) << "x\n";
     cout << "\nsequential avg iterations: " << (int)avg_seq_iter << "\n";
     cout << "parallel avg iterations:   " << (int)avg_par_iter << "\n";
+    cout << "\nsequential avg trials:     " << (int)avg_seq_trials << "\n";
+    cout << "parallel avg trials:       " << (int)avg_par_trials << "\n";
 }
 
 void visualSolver(const vector<TestResult>& results, int test_choice) {

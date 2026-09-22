@@ -23,35 +23,40 @@ int main() {
 
     OptimizationPlotter plotter;
 
-    Solver* s;
     std::cout << "GSA Solver" << std::endl;
-    s = new GSASolver();
-    s->SetEps(0.001);
-    dynamic_cast<GSASolver*>(s)->SetR(2.0);
-    s->SetKmax(200);
-    s->SetTask(t);
-    s->Solve();
-    Trial result1 = s->GetBest();
+    {
+        GSASolver gsa;
+        gsa.SetEps(0.001);
+        gsa.SetKmax(200);
+        gsa.SetR(2.0);
+        gsa.SetP(2);
+        gsa.SetTask(t);
+        gsa.Solve();
 
-    std::cout << "\nOptimization result:" << std::endl;
-    std::cout << "Best point: x* = " << result1.x << std::endl;
-    std::cout << "Minimum value: f(x*) = " << result1.z << std::endl;
+        Trial best = gsa.GetBest();
+        std::cout << "Best point: x* = " << best.x << std::endl;
+        std::cout << "Minimum: f(x*) = " << best.z << std::endl;
+        std::cout << "Iterations:      " << gsa.GetIterations() << std::endl;
+        std::cout << "Trials:          " << gsa.GetTrialsCount() << std::endl;
 
-    plotter.PlotAlgorithm(s->GetTrials(), result1, t.a, t.b, "GSA Algorithm");
+        plotter.PlotAlgorithm(gsa.GetTrials(), best, t.a, t.b, "GSA Algorithm");
+    }
 
     std::cout << "\nScan Solver" << std::endl;
-    s = new ScanSolver();
-    s->SetEps(0.001);
-    s->SetKmax(200);
-    s->SetTask(t);
-    s->Solve();
-    Trial result2 = s->GetBest();
+    {
+        ScanSolver scan;
+        scan.SetEps(0.001);
+        scan.SetKmax(200);
+        scan.SetTask(t);
+        scan.Solve();
 
-    std::cout << "\nOptimization result:" << std::endl;
-    std::cout << "Best point: x* = " << result2.x << std::endl;
-    std::cout << "Minimum value: f(x*) = " << result2.z << std::endl;
+        Trial best = scan.GetBest();
+        std::cout << "Best point:  x* = " << best.x << std::endl;
+        std::cout << "Minimum:   f(x*) = " << best.z << std::endl;
+        std::cout << "Iterations:      " << scan.GetIterations() << std::endl;
 
-    plotter.PlotAlgorithm(s->GetTrials(), result2, t.a, t.b, "Scan Algorithm");
+        plotter.PlotAlgorithm(scan.GetTrials(), best, t.a, t.b, "Scan Algorithm");
+    }
 
     return 0;
 }

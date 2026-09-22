@@ -5,6 +5,7 @@
 #include <iostream>
 #include <vector>
 #include <limits>
+#include <omp.h>
 
 struct Trial {
     double x;
@@ -28,6 +29,7 @@ protected:
     std::vector<Trial> Trials;
     Task task;
     Trial bestTrial;
+    int iter;
 
 public:
     Solver() : eps(0.001), Kmax(100) {}
@@ -44,9 +46,13 @@ public:
     virtual void SetEps(double eps_val) { eps = eps_val; }
     virtual void SetKmax(int kmax_val) { Kmax = kmax_val; }
     const std::vector<Trial>& GetTrials() const { return Trials; }
-    virtual int GetIterations() const { return Trials.size(); }
+    virtual int GetTrialsCount() const { return Trials.size(); }
+    virtual int GetIterations() const { return iter; }
 
-    void Initialize() { Trials.clear(); }
+    void Initialize() { 
+        Trials.clear(); 
+        iter = 0;
+    }
 
     void FirstTrial() {
         Trial trial0, trial1;
@@ -60,6 +66,8 @@ public:
 
         Trials.push_back(trial0);
         Trials.push_back(trial1);
+
+        iter = 2;
     }
 
     bool CheckStopCondition(size_t t) {
@@ -71,17 +79,8 @@ public:
         return false;
     }
 
-    bool CheckPointExists(double x) {
-        for (const auto& trial : Trials) {
-            if (std::abs(trial.x - x) < 1e-15) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    void InsertNewTrial(const Trial& newTrial, size_t t) {
-        Trials.insert(Trials.begin() + t + 1, newTrial);
+    void InsertNewTrial(const Trial& newTrial) {
+        Trials.push_back(newTrial);
         if (newTrial.z < bestTrial.z) {
             bestTrial = newTrial;
         }
@@ -169,37 +168,37 @@ public:
         Initialize();
         FirstTrial();
 
-        int k = 2;
+        iter = 2;
         bool Stop = false;
 
-        while (k < Kmax && !Stop) {
+        while (iter < Kmax && !Stop) {
+            std::sort(Trials.begin(), Trials.end());
             double m = EstimateM();
             std::vector<double> R = CalculateR(m);
             std::vector<size_t> top = FindTopIntervals(R);
             
             if (top.empty()) break;
             
-            Stop = CheckStopCondition(top[0]);
+            for (size_t t : top) {
+                if (CheckStopCondition(t)) {
+                    Stop = true;
+                    break;
+                }
+            }
             
             if (!Stop) {
-                std::vector<Trial> new_trials;
-                for (size_t t : top) {
+                std::vector<Trial> new_trials(top.size());
+                #pragma omp parallel for
+                for (int i = 0; i < (int)top.size(); ++i) {
+                    size_t t = top[i];
                     double x = CalculateNewX(t, m);
-                    if (!CheckPointExists(x)) {
-                        new_trials.push_back(MakeNewTrial(x, k + 1));
-                    }
+                    new_trials[i] = MakeNewTrial(x, iter + 1);
                 }
-                
-                std::sort(new_trials.begin(), new_trials.end());
                 
                 for (const Trial& nt : new_trials) {
-                    size_t pos = 0;
-                    while (pos < Trials.size() - 1 && Trials[pos + 1].x < nt.x) pos++;
-                    if (!CheckPointExists(nt.x)) {
-                        InsertNewTrial(nt, pos);
-                        k++;
-                    }
+                    InsertNewTrial(nt);
                 }
+                iter++;
             }
         }
     }
@@ -213,21 +212,20 @@ public:
         Initialize();
         FirstTrial();
 
-        int k = 2;
+        iter = 2;
         bool Stop = false;
 
-        while (k < Kmax && !Stop) {
+        while (iter < Kmax && !Stop) {
+            std::sort(Trials.begin(), Trials.end());
+
             size_t t = FindLongestInterval();
             Stop = CheckStopCondition(t);
 
             if (!Stop) {
                 double x = CalculateMiddlePoint(t);
-                Trial newTrial = MakeNewTrial(x, k + 1);
-                
-                if (!CheckPointExists(newTrial.x)) {
-                    InsertNewTrial(newTrial, t);
-                    k++;
-                }
+                Trial newTrial = MakeNewTrial(x, iter + 1);
+                InsertNewTrial(newTrial);
+                iter++;
             }
         }
     }

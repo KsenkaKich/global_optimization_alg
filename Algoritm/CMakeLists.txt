@@ -5,6 +5,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+#OpenMP
+find_package(OpenMP REQUIRED)
+
 #GCGEN
 set(GCGEN_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/external/GCGen)
 set(GCGEN_SAMPLE_INCLUDE ${GCGEN_ROOT}/sample_src)
@@ -50,6 +53,7 @@ target_link_libraries(${MAIN_TARGET}
     ${DISLIN_CPP_LIB}
     ${DISLIN_C_LIB}
     ${X11_LIB}
+    OpenMP::OpenMP_CXX
     m
     pthread
 )
@@ -73,6 +77,7 @@ target_link_libraries(${TEST_TARGET}
     ${DISLIN_CPP_LIB}
     ${DISLIN_C_LIB}
     ${X11_LIB}
+    OpenMP::OpenMP_CXX
     m
     pthread
 )
@@ -90,6 +95,7 @@ target_link_libraries(${CHAR_TARGET}
     ${DISLIN_CPP_LIB}
     ${DISLIN_C_LIB}
     ${X11_LIB}
+    OpenMP::OpenMP_CXX
     m
     pthread
 )
